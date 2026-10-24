@@ -1,0 +1,57 @@
+# ============================================================
+# LegalMetriCheck — Docker Compose Deployment Stack
+# ============================================================
+
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: legalmetricheck-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - MONGODB_URI=mongodb://mongo:27017/legalmetricheck
+      - SESSION_SECRET=legalmetricheck-prod-enclave-secret-2026
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - legalmetri-net
+
+  mongo:
+    image: mongo:7-jammy
+    container_name: legalmetricheck-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - legalmetri-net
+
+volumes:
+  mongo-data:
+    driver: local
+
+networks:
+  legalmetri-net:
+    driver: bridge
